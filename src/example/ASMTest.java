@@ -230,7 +230,7 @@ public class ASMTest {
 		c.collectFlowpoints();
 		
 		// instrement the code 		
-		FlowpointInstrumenter fpi = new FlowpointInstrumenter("example/SomeClass", c.getLocalSlots(), new ArrayList<Flowpoint>());
+		FlowpointInstrumenter fpi = new FlowpointInstrumenter("example/SomeClass", c, new ArrayList<Flowpoint>());
 
 		ClassWriter cw = fpi.instrument();
 		
@@ -241,7 +241,10 @@ public class ASMTest {
 		loadClass(cw.toByteArray(), "example.SomeClass");
 
 		SomeClass sc = new SomeClass();
-		sc.doStuff2(3);
+
+		//
+		sc.doStuff2(null);
+		//
 
 	}
 

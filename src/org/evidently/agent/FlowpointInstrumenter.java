@@ -11,6 +11,7 @@ import java.util.Stack;
 import org.evidently.agent.FlowpointCollector.CollectFlowpointDetails;
 import org.evidently.agent.FlowpointCollector.CollectMethodFlowpointDetails;
 import org.evidently.agent.FlowpointCollector.Slot;
+import org.evidently.agent.TypeUtils.Type;
 import org.evidently.monitor.SecurityLabelManager;
 import org.evidently.policy.PolicyElementType;
 import org.objectweb.asm.AnnotationVisitor;
@@ -46,18 +47,17 @@ import static org.objectweb.asm.Opcodes.*;
 
 public class FlowpointInstrumenter {
 
-	private List<Slot> localSlots;
 	private String clazz;
 	private String currentMethod;
 	private String currentPackage;
 	private Stack<String> currentClass = new Stack<String>();
 	private List<Flowpoint> flowpoints;
-	private Set<Slot> initializedSlots = new HashSet<Slot>();
-
-	public FlowpointInstrumenter(String clazz, List<Slot> localSlots, List<Flowpoint> flowpoints) {
+	private FlowpointCollector flowpointCollector;
+	
+	public FlowpointInstrumenter(String clazz, FlowpointCollector flowpointCollector, List<Flowpoint> flowpoints) {
 		this.clazz = clazz;
-		this.localSlots = localSlots;
-		this.flowpoints = flowpoints; 
+		this.flowpoints = flowpoints;
+		this.flowpointCollector = flowpointCollector;
 		
 		int i = clazz.lastIndexOf('/');
 		currentPackage = clazz.substring(0, i).replaceAll("/", ".");
@@ -126,19 +126,17 @@ public class FlowpointInstrumenter {
 		
 		private void updateLocal(Slot s, String flowpointName){
 			
-			// we will not register a variable if there are no labels to track on it.
-			
 			{
 				mv.visitVarInsn(ILOAD, s.slot);
-				
-				if(s.sinks !=null && s.sinks.size() > 6){
-					throw new IllegalArgumentException("A label cannot be initailized with more that 6 members");
-				}
 				
 				int registers[] = new int[]{ICONST_0,ICONST_1,ICONST_2,ICONST_3,ICONST_4,ICONST_5};
 
 				// build the sinks array 		
-				if(s.sinks!=null && s.sources!=null && s.sinks.size() > 0 && s.sources.size() > 0){
+				if(s!=null && s.sinks!=null && s.sources!=null && s.sinks.size() > 0 && s.sources.size() > 0){
+				
+					if(s.sinks.size() > 6 || s.sources.size() > 6){
+						throw new IllegalArgumentException("A label cannot be initailized with more that 6 members");
+					}
 					
 					mv.visitTypeInsn(NEW, "org/evidently/monitor/Label");
 					mv.visitInsn(DUP);
@@ -153,10 +151,6 @@ public class FlowpointInstrumenter {
 						mv.visitInsn(AASTORE);
 					}
 					
-				
-					if(s.sources != null && s.sources.size() > 6){
-						throw new IllegalArgumentException("A label cannot be initailized with more that 6 members");
-					}
 
 					// build the sources array
 					mv.visitIntInsn(BIPUSH, s.sources.size());
@@ -181,9 +175,9 @@ public class FlowpointInstrumenter {
 					mv.visitInsn(ACONST_NULL);
 				}
 				
-				mv.visitMethodInsn(INVOKESTATIC, "org/evidently/monitor/SecurityLabelManager", "update", "(ILorg/evidently/monitor/Label;)I", false);
+				mv.visitMethodInsn(INVOKESTATIC, "org/evidently/monitor/SecurityLabelManager", "update", typeToUpdateSignature(s.varType), false);
 				
-				if(s.isObjectOrArray()==false){
+				if(s.isObject()==false && s!=null){
 					mv.visitVarInsn(ISTORE, s.slot); // we have to write back.
 				}
 				
@@ -197,12 +191,12 @@ public class FlowpointInstrumenter {
 		public void visitIincInsn(int var, int increment) {
 			super.visitIincInsn(var, increment);
 			
-			updateSlottedVar(var);
+			updateLocal(var);
 		}
 
-		private void updateSlottedVar(int var){
+		private void updateLocal(int var){
 			// get the slot
-			Slot s = findSlot(localSlots, currentPackage, currentClass.peek(), currentMethod, var);
+			Slot s = flowpointCollector.findSlot(currentPackage, currentClass.peek(), currentMethod, var);
 			
 			// lets' see if this particular var instruction is part of a
 			// flowpoint
@@ -231,29 +225,156 @@ public class FlowpointInstrumenter {
 						 
 			}
 
-			
 			updateLocal(s,  flowPointName);
+		}
+		
+
+		public void updateField(Slot s, String flowPointName, int opcode, String owner, String name, String desc)
+		{
+			// need to know if field is static
+			// need to know if is a int or a object
+			{
+				if(opcode==PUTSTATIC){
+					mv.visitFieldInsn(GETSTATIC, owner, name, desc);
+	
+				}else{
+					mv.visitVarInsn(Opcodes.ALOAD, lastSlot);
+					mv.visitVarInsn(Opcodes.ALOAD, lastSlot);
+
+					mv.visitFieldInsn(GETFIELD, owner, name, desc);					
+				}
+								
+				int registers[] = new int[]{ICONST_0,ICONST_1,ICONST_2,ICONST_3,ICONST_4,ICONST_5};
+
+				// build the sinks array 		
+				if(s!=null && s.sinks!=null && s.sources!=null && s.sinks.size() > 0 && s.sources.size() > 0){
+				
+					if(s.sinks.size() > 6 || s.sources.size() > 6){
+						throw new IllegalArgumentException("A label cannot be initailized with more that 6 members");
+					}
+					
+					mv.visitTypeInsn(NEW, "org/evidently/monitor/Label");
+					mv.visitInsn(DUP);
+
+					mv.visitIntInsn(BIPUSH, s.sinks.size());
+					mv.visitTypeInsn(ANEWARRAY, "java/lang/String");
+	
+					for(int i=0; i< s.sinks.size(); i++){
+						mv.visitInsn(DUP);
+						mv.visitInsn(ICONST_0);
+						mv.visitLdcInsn(s.sinks.get(i));
+						mv.visitInsn(AASTORE);
+					}
+					
+
+					// build the sources array
+					mv.visitIntInsn(BIPUSH, s.sources.size());
+					mv.visitTypeInsn(ANEWARRAY, "java/lang/String");
+	
+					
+					for(int i=0; i< s.sources.size(); i++){
+						mv.visitInsn(DUP);
+						mv.visitInsn(ICONST_0);
+						mv.visitLdcInsn(s.sources.get(i));
+						mv.visitInsn(AASTORE);
+					}
+					
+					if(flowPointName!=null){
+						mv.visitFieldInsn(GETSTATIC, "org/evidently/policy/PolicyElementType", "FLOWPOINT", "Lorg/evidently/policy/PolicyElementType;");
+						mv.visitLdcInsn(flowPointName);
+						mv.visitMethodInsn(INVOKESPECIAL, "org/evidently/monitor/Label", "<init>", "([Ljava/lang/String;[Ljava/lang/String;Lorg/evidently/policy/PolicyElementType;Ljava/lang/String;)V", false);
+					}else{
+						mv.visitMethodInsn(INVOKESPECIAL, "org/evidently/monitor/Label", "<init>", "([Ljava/lang/String;[Ljava/lang/String;)V", false);
+					}
+				}else{
+					mv.visitInsn(ACONST_NULL);
+				}
+				
+				mv.visitMethodInsn(INVOKESTATIC, "org/evidently/monitor/SecurityLabelManager", "update", typeToUpdateSignature(desc), false);
+				
+				if(TypeUtils.getType(desc) != Type.OBJECT){
+					if(opcode==PUTSTATIC){
+						mv.visitFieldInsn(PUTSTATIC, owner, name, desc);
+		
+					}else{
+						mv.visitFieldInsn(PUTFIELD, owner, name, desc);					
+					}
+		
+				}
+				
+			}
+
+			
+			
+			
+			// if it is not an object, we do a PUTFIELD to write it back.
+		}
+		
+		private String typeToUpdateSignature(String t){
+			//"(Ljava/lang/Object;Lorg/evidently/monitor/Label;)V"
+			//"(CLorg/evidently/monitor/Label;)C"
+			//"(ILorg/evidently/monitor/Label;)I"
+			//([ILorg/evidently/monitor/Label;)[I
+
+			if(TypeUtils.getType(t)==Type.OBJECT){
+				return "(Ljava/lang/Object;Lorg/evidently/monitor/Label;)V";
+			}
+			
+			return String.format("(%sLorg/evidently/monitor/Label;)%s", t, t);
+		}
+		
+		private void updateField(int opcode, String owner, String name, String desc){
+			
+			Slot s = flowpointCollector.findSlot(currentPackage, currentClass.peek(), name);
+
+			String flowPointName = null;
+
+			String scope = currentPackage;
+			String type = desc;
+			String _currentClass = currentClass.peek();
+			String _currentMethod = currentMethod;
+			String _name = name;
+			ASTType astType = ASTType.FIELD;
+			MethodCall _lastMethodCall = lastMethodCall;
+
+			for (Flowpoint fp : flowpoints) {
+				String fpn = fp.getFlowpointFor(scope, type, _currentClass, _currentMethod, _name, astType,
+						_lastMethodCall);
+
+				if (fpn != null) {
+					if (flowPointName != null) {
+						throw new IllegalArgumentException(
+								"Flowpoint " + fpn + " is ambiguous. Please review flowpoint defintions");
+					} else {
+						flowPointName = fpn;
+					}
+				}
+
+			}
+
+			updateField(s, flowPointName, opcode, owner, name, desc);
 
 		}
+		private int lastSlot;
 		
 		@Override
 		public void visitVarInsn(int opcode, int var) {
 
 			System.out.println(String.format("[Evidently] [TAGGING] Visiting variable instruction: opcode=%d,slot=%d",
-					opcode, var));
-		
-			
+					opcode, var));		
+			lastSlot = var;
+
 			if (var == 0) {
 				System.out.println(
 						"[Evidently] [TAGGING] Ignoring THIS reference (because it's probably a field reference)");
+				
 				super.visitVarInsn(opcode, var);
+				
 			} else {
-
 				super.visitVarInsn(opcode, var);
-
-				updateSlottedVar(var);
+				updateLocal(var);
 			}
-
+			
 		}
 
 		@Override
@@ -289,35 +410,12 @@ public class FlowpointInstrumenter {
 					"[Evidently] [TAGGING] Visiting field instruction: opcode=%d,owner=%s,name=%s,desc=%s", opcode,
 					owner, name, desc));
 
+			
 			super.visitFieldInsn(opcode, owner, name, desc);
 
-			// a potential flowpoint
-			if (opcode == Opcodes.PUTFIELD) {
-				 String scope = currentPackage;
-				 String type  = "";
-				 String _currentClass = currentClass.peek();
-				 String _currentMethod = currentMethod;
-				 String _name = name;
-				 ASTType astType = ASTType.FIELD;
-				 MethodCall _lastMethodCall = lastMethodCall;
-
-				 for(Flowpoint fp : flowpoints){
-					 String flowpointName = fp.getFlowpointFor(scope, type, _currentClass, _currentMethod, _name, astType, _lastMethodCall);
-					 
-					 if(flowpointName!=null){ // meaning it IS a flowpoint
-						 
-						 // if this is an INTRODUCTION of this field, we set it one way
-						 
-						 
-						 // otherwise we just set it and let it pick up the old values 
-						 // write the instructions. 
-						 
-						 // 
-						 
-					 }
-				 }
-					 
-
+			// a potential flowpoint -- also, we are only really interested in 
+			if (opcode == Opcodes.PUTFIELD || opcode == Opcodes.PUTSTATIC) {
+				updateField(opcode, owner, name, desc);
 			}
 
 		}
@@ -331,15 +429,4 @@ public class FlowpointInstrumenter {
 
 	}
 
-	public static Slot findSlot(List<Slot> slots, String p, String c, String m, int slot) {
-
-		for (Slot s : slots) {
-			if (s.p.equals(p) && s.c.equals(c) && s.m.equals(m) && slot == s.slot) {
-				return s;
-			}
-		}
-
-		return null;
 	}
-
-}

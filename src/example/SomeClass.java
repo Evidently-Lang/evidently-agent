@@ -9,16 +9,24 @@ import org.evidently.policy.PolicyElementType;
 
 public class SomeClass {
 
-	
-	
-	public int doStuff2(int aa){
+	public String fieldString;
+	public long fieldInt;	
+
+	public void doStuff2(SomeClass cz){
 		
-		@Sink("DB") @Source("DB") int secret = 0;
+		fieldInt = 100;
+//		SecurityLabelManager.update(
+//		fieldInt, 
+//		null);
+
 		
-		secret = secret + 1;
+
+//		cz.fieldString = "test";
+//		SecurityLabelManager.update(
+//		cz.fieldString, 
+//		null);
+
 		
-		System.out.println("Test");
-		return 0;
 	}
 //	@Sink("FIELDP") public int p;
 //	
@@ -43,7 +51,7 @@ public class SomeClass {
 //				));
 //	
 //	}
-//	
+	
 //	public void registerFlowpointObjectWithSources(){
 //		String realNumber = "asefs";
 //		
