@@ -2,8 +2,22 @@ package example.flowpoints;
 
 import org.evidently.agent.ASTType;
 import org.evidently.agent.Flowpoint;
+import org.evidently.agent.MethodCall;
 
-public class Flowpoint1  {
+public class Flowpoint1  implements Flowpoint {
+
+	@Override
+	public String getName() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public String getFlowpointFor(String scope, String type, String currentClass, String currentMethod, String name,
+			ASTType astType, MethodCall lastMethodCall) {
+		// TODO Auto-generated method stub
+		return null;
+	}
 
 	//
 	// this flowpoint should get a field called f (but from any object) 
