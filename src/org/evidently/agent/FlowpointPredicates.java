@@ -2,7 +2,7 @@ package org.evidently.agent;
 
 public class FlowpointPredicates {
 	
-	public static boolean within(String arg, String scope){
+	public static boolean within(String arg, String scope, String currentClass){
 		String s = scope;
 		if(s.contains("/")){
 			s = s.replaceAll("/", ".");
@@ -16,7 +16,7 @@ public class FlowpointPredicates {
 		// org.apache => true for both cases
 		// org.apache.foo => true for only the second case
 		
-		return (scope.startsWith(arg));
+		return (scope.startsWith(arg) || (scope + "." + currentClass).startsWith(arg));
 	}
 	
 	public static boolean execution(String arg, String currentMethod, String methodSignature)

@@ -2,9 +2,12 @@ package example;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
+import org.evidently.agent.Flowpoint;
 import org.evidently.agent.FlowpointCollector;
+import org.evidently.agent.FlowpointInstrumenter;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -193,7 +196,7 @@ public class ASMTest {
 
 	}
 
-	private Class loadClass(byte[] b, String name) {
+	private static Class loadClass(byte[] b, String name) {
 		// override classDefine (as it is protected) and define the class.
 		Class clazz = null;
 		try {
@@ -222,10 +225,24 @@ public class ASMTest {
 
 		//t.test1();
 		
-		
+		// collect the metadata for flowpoints
 		FlowpointCollector c = new FlowpointCollector("example/SomeClass");
-		
 		c.collectFlowpoints();
+		
+		// instrement the code 		
+		FlowpointInstrumenter fpi = new FlowpointInstrumenter("example/SomeClass", c.getLocalSlots(), new ArrayList<Flowpoint>());
+
+		ClassWriter cw = fpi.instrument();
+		
+		FileOutputStream fos = new FileOutputStream("test/SomeClass.class");
+		fos.write(cw.toByteArray());
+		fos.close();
+
+		loadClass(cw.toByteArray(), "example.SomeClass");
+
+		SomeClass sc = new SomeClass();
+		sc.doStuff2(3);
+
 	}
 
 }

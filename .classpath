@@ -8,5 +8,6 @@
 	<classpathentry kind="lib" path="libs/asm-tree-5.2.jar" sourcepath="libs/src.zip"/>
 	<classpathentry kind="lib" path="libs/asm-util-5.2.jar"/>
 	<classpathentry kind="lib" path="libs/asm-xml-5.2.jar"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/EvidentlyMonitor"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
