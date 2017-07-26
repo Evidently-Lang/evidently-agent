@@ -29,6 +29,9 @@ public class FlowpointCollector {
 	private String currentPackage;
 	private Stack<String> currentClass = new Stack<String>();
 	private String currentMethod;
+	private String currentMethodDesc;
+	private String currentMethodSignature;
+
 	
 	// for keeping track of the slots of locals	
 	class Slot {
@@ -40,10 +43,13 @@ public class FlowpointCollector {
 		public int slot;       // the slot in the instruction set
 		public ASTType kind;   // what kind of thing this is (local or field)
 		
+		private String methodDesc;
+		private String methodSignature;
+
 		public List<String> sinks;
 		public List<String> sources;
 		
-		public Slot(String p, String c, String m, String desc, String v, int slot){
+		public Slot(String p, String c, String m, String desc, String v, String methodDesc, String methodSignature, int slot){
 			this.p = p;
 			this.c = c;
 			this.m = m;
@@ -51,6 +57,8 @@ public class FlowpointCollector {
 			this.slot = slot;
 			this.varType = desc;
 			this.kind = ASTType.LOCAL;
+			this.methodDesc = methodDesc;
+			this.methodSignature = methodSignature;
 		}
 		
 		public Slot(String p, String c, String v, String desc){
@@ -80,12 +88,20 @@ public class FlowpointCollector {
 	
 	private List<Slot> localSlots = new ArrayList<Slot>();
 	
-	public Slot findSlot(String p, String c, String m, int slot) {
+	public Slot findSlot(String p, String c, String m, String cmd, String cms, int slot) {
 
 		List<Slot> slots = localSlots;
 		
 		for (Slot s : slots) {
-			if (s.p.equals(p) && s.c.equals(c) && s.m.equals(m) && slot == s.slot) {
+			if (
+					(s.p!=null && s.p.equals(p)) 
+					&& (s.c!=null && s.c.equals(c)) 
+					&& (s.m!=null && s.m.equals(m)) 
+					&& slot == s.slot
+					&& (s.methodDesc!=null && s.methodDesc.equals(cmd))
+					&& (s.methodSignature!=null && s.methodDesc.equals(cms))
+
+					) {
 				return s;
 			}
 		}
@@ -235,6 +251,9 @@ public class FlowpointCollector {
 			System.out.println(String.format("[Evidently] Examining body of method for possible flowpoints: %s", name));
 			
 			currentMethod = name;
+			currentMethodDesc = desc;
+			currentMethodSignature = signature;
+
 			
 			MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
 
@@ -298,7 +317,7 @@ public class FlowpointCollector {
 		public void visitLocalVariable(String name, String desc, String signature, Label start, Label end, int index) {
 			System.out.println(String.format("[Evidently] Visiting Local Variable Decl, name=%s,desc=%s,signature=%s,index=%d", name, desc, signature, index));
 
-			getLocalSlots().add(new Slot(currentPackage, currentClass.peek(), currentMethod, desc, name, index));
+			getLocalSlots().add(new Slot(currentPackage, currentClass.peek(), currentMethod, desc, name, currentMethodDesc, currentMethodSignature, index));
 					
 			super.visitLocalVariable(name, desc, signature, start, end, index);
 		}

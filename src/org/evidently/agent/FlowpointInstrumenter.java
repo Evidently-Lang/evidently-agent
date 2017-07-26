@@ -50,6 +50,9 @@ public class FlowpointInstrumenter {
 	private String clazz;
 	private String currentMethod;
 	private String currentPackage;
+	private String currentMethodDesc;
+	private String currentMethodSignature;
+
 	private Stack<String> currentClass = new Stack<String>();
 	private List<Flowpoint> flowpoints;
 	private FlowpointCollector flowpointCollector;
@@ -105,6 +108,8 @@ public class FlowpointInstrumenter {
 					String.format("[Evidently] [TAGGING] Examining body of method for possible flowpoints: %s", name));
 
 			currentMethod = name;
+			currentMethodDesc = desc;
+			currentMethodSignature = signature;
 
 			MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
 
@@ -126,8 +131,15 @@ public class FlowpointInstrumenter {
 		
 		private void updateLocal(Slot s, String flowpointName){
 			
+			if(s==null) return;
+			
+			
 			{
-				mv.visitVarInsn(ILOAD, s.slot);
+				if(s.isObject()){
+					mv.visitVarInsn(ALOAD, s.slot);
+				}else{
+					mv.visitVarInsn(ILOAD, s.slot);					
+				}
 				
 				int registers[] = new int[]{ICONST_0,ICONST_1,ICONST_2,ICONST_3,ICONST_4,ICONST_5};
 
@@ -196,7 +208,7 @@ public class FlowpointInstrumenter {
 
 		private void updateLocal(int var){
 			// get the slot
-			Slot s = flowpointCollector.findSlot(currentPackage, currentClass.peek(), currentMethod, var);
+			Slot s = flowpointCollector.findSlot(currentPackage, currentClass.peek(), currentMethod, currentMethodDesc, currentMethodSignature, var);
 			
 			// lets' see if this particular var instruction is part of a
 			// flowpoint

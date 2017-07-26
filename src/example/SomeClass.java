@@ -8,26 +8,38 @@ import org.evidently.monitor.SecurityLabelManager;
 import org.evidently.policy.PolicyElementType;
 
 public class SomeClass {
-
-	public String fieldString;
-	public long fieldInt;	
-
-	public void doStuff2(SomeClass cz){
-		
-		fieldInt = 100;
-//		SecurityLabelManager.update(
-//		fieldInt, 
-//		null);
-
-		
-
-//		cz.fieldString = "test";
-//		SecurityLabelManager.update(
-//		cz.fieldString, 
-//		null);
-
-		
+	
+	public void writeLog(int msg) {
+		System.out.println("" + msg);
 	}
+
+	public void writeLog(String msg) {
+		System.out.println(msg);
+	}
+
+//	public String fieldString;
+//	public long fieldInt;	
+//
+//	public void doStuff2(SomeClass cz){
+//		
+////		NumberGuesser ng = new NumberGuesser();
+////		
+////		SecurityLabelManager.update(
+////		ng, 
+////		null);
+//
+//		char b = 'a';
+//		
+//		b = SecurityLabelManager.update(b, null);
+//		
+//
+////		cz.fieldString = "test";
+////		SecurityLabelManager.update(
+////		cz.fieldString, 
+////		null);
+//
+//		
+//	}
 //	@Sink("FIELDP") public int p;
 //	
 //	public int getNewInt(int last, SomeClass c){

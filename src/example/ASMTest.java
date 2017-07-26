@@ -224,27 +224,33 @@ public class ASMTest {
 		//ASMTest t = new ASMTest();
 
 		//t.test1();
+//		String clazz = "example/SomeClass";
+//		String cls   = "example.SomeClass";
+//		
+		String clazz = "example/NumberGuesser";
+		String cls   = "example.NumberGuesser";
 		
 		// collect the metadata for flowpoints
-		FlowpointCollector c = new FlowpointCollector("example/SomeClass");
+		FlowpointCollector c = new FlowpointCollector(clazz);
 		c.collectFlowpoints();
 		
 		// instrement the code 		
-		FlowpointInstrumenter fpi = new FlowpointInstrumenter("example/SomeClass", c, new ArrayList<Flowpoint>());
+		FlowpointInstrumenter fpi = new FlowpointInstrumenter(clazz, c, new ArrayList<Flowpoint>());
 
 		ClassWriter cw = fpi.instrument();
 		
-		FileOutputStream fos = new FileOutputStream("test/SomeClass.class");
+		FileOutputStream fos = new FileOutputStream("test/" + cls+".class");
 		fos.write(cw.toByteArray());
 		fos.close();
 
-		loadClass(cw.toByteArray(), "example.SomeClass");
+		loadClass(cw.toByteArray(), cls);
 
-		SomeClass sc = new SomeClass();
+		NumberGuesser sc = new NumberGuesser();
 
-		//
-		sc.doStuff2(null);
-		//
+		sc.main(null);
+		
+//		SomeClass sc = new SomeClass();
+//		sc.writeLog("test");
 
 	}
 
