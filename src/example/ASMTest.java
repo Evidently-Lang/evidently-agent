@@ -235,7 +235,7 @@ public class ASMTest {
 		c.collectFlowpoints();
 		
 		// instrement the code 		
-		FlowpointInstrumenter fpi = new FlowpointInstrumenter(clazz, c, new ArrayList<Flowpoint>());
+		FlowpointInstrumenter fpi = null;///new FlowpointInstrumenter(clazz, c, new ArrayList<Flowpoint>());
 
 		ClassWriter cw = fpi.instrument();
 		
