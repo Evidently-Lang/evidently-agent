@@ -1,6 +1,6 @@
 <?xml version="1.0" ?>
 <project name="EvidentlyAgent" default="CreateJar">
   <target name="CreateJar" description="Create Jar file">
-        <jar jarfile="target/evidently-vm-agent.jar" basedir="bin" includes="**/*.class" manifest="bin/META-INF/MANIFEST.MF" />
+        <jar jarfile="target/evidently-jvm-agent.jar" basedir="bin" includes="**/*.class" manifest="bin/META-INF/MANIFEST.MF" />
   </target>
 </project>  
