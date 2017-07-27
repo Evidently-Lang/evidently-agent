@@ -16,7 +16,7 @@ public class Evidently {
 		//Configuration.ADDL_IGNORE = "org/evidently/"; //agent";
 	}
 
-	public static List<Flowpoint> flowpoints = new ArrayList<Flowpoint>();
+	public static List<Class <? extends Flowpoint>> flowpoints = null; //new ArrayList<Flowpoint>();
 
 	public static void premain$$PHOSPHORTAGGED(String agentArgs, Instrumentation inst, ControlTaintTagStack ctts){
 		System.out.println(String.format("[Evidently] [AGENT] Starting Phosphor Shim..."));

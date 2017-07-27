@@ -1,15 +1,16 @@
 package org.evidently.agent;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.ProtectionDomain;
 import java.util.ArrayList;
 
 import org.objectweb.asm.ClassWriter;
-
-import edu.columbia.cs.psl.phosphor.runtime.TaintSentinel;
-import edu.columbia.cs.psl.phosphor.struct.ControlTaintTagStack;
 
 public class EvidentlyClassTransformer implements ClassFileTransformer {
 	
@@ -71,13 +72,49 @@ public class EvidentlyClassTransformer implements ClassFileTransformer {
 
 	}
 	
-	
+	static {
+		{
+			// support up to 100 flowpoints
+			
+			if(Evidently.flowpoints==null){
+				
+				Evidently.flowpoints = new ArrayList<Class <? extends Flowpoint>>();
+				
+				System.out.println("[Evidently] [AGENT] Locating flowpoints in classpath...");
+
+				for(int i=0; i< 100; i++){
+					try {
+						String flowpoint = "Flowpoint$" + i;
+						
+						Flowpoint fp = (Flowpoint)ClassLoader.getSystemClassLoader().loadClass("org.evidently.flowpoints." + flowpoint).newInstance();
+						
+						System.out.println("[Evidently] [AGENT] Attempting to load flowpoint " + flowpoint);
+		
+						System.out.println(String.format("[Evidently] [AGENT] Loading flowpoint [%s]", fp.getName()));
+		
+						Evidently.flowpoints.add((Class <? extends Flowpoint>)ClassLoader.getSystemClassLoader().loadClass("org.evidently.flowpoints." + flowpoint));
+						
+					} catch (ClassNotFoundException | InstantiationException | IllegalAccessException e) {
+						System.out.println("[Evidently] [AGENT] Attempting to load flowpoint Flowpoint$" + i + " [NO]");
+					}
+					
+				}
+		
+
+			}
+			
+		}
+	}
 	
 	public static byte[] _transform(final ClassLoader loader, final String className, final Class<?> classBeingRedefined,
 			final ProtectionDomain protectionDomain, final byte[] classfileBuffer, byte[] lastLoad) throws IllegalClassFormatException {
 
-		System.out.println(String.format("[Evidently] [AGENT] Starting transformation of [%s]", className));
+		//System.out.println(String.format("[Evidently] [AGENT] Starting transformation of [%s]", className));
 
+		
+		
+		
+		
 		
 		if (className==null 
 				|| className.startsWith("org/evidently")
@@ -86,7 +123,7 @@ public class EvidentlyClassTransformer implements ClassFileTransformer {
 				|| className.startsWith("org/reflections")
 				|| className.startsWith("edu/columbia/")){
 
-			System.out.println(String.format("[Evidently] [AGENT] Skipping transformation of [%s]", className));
+			//System.out.println(String.format("[Evidently] [AGENT] Skipping transformation of [%s]", className));
 
 			return lastLoad;
 		}
@@ -95,16 +132,22 @@ public class EvidentlyClassTransformer implements ClassFileTransformer {
 			return lastLoad;
 		}
  
-		System.out.println("[Evidently] [AGENT] Bytecode Transforming Class: " + className);
+		//System.out.println("[Evidently] [AGENT] Bytecode Transforming Class: " + className);
 		
 		try {
-			FlowpointCollector c = new FlowpointCollector(className);
+			FlowpointCollector c = new FlowpointCollector(className, lastLoad);
 			c.collectFlowpoints();
 
-			FlowpointInstrumenter fpi = new FlowpointInstrumenter(className, c, Evidently.flowpoints);
+			FlowpointInstrumenter fpi = new FlowpointInstrumenter(className, lastLoad, c, Evidently.flowpoints);
 
 			ClassWriter cw = fpi.instrument();
 
+			new File("bin-debug/" +className).mkdirs();
+			FileOutputStream fos = new FileOutputStream("bin-debug/" +className +".class");
+			fos.write(cw.toByteArray());
+			fos.close();
+
+			
 			return cw.toByteArray();
 
 		} catch (IOException e) {

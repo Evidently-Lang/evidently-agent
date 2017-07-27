@@ -123,7 +123,7 @@ public class FlowpointCollector {
 		return null;
 	}
 
-	
+	private byte[] lastLoad;
 	public FlowpointCollector(String clazz) {
 		this.clazz = clazz;
 
@@ -132,9 +132,21 @@ public class FlowpointCollector {
 		currentClass.push(clazz.substring(i+1));		
 	}
 
+	public FlowpointCollector(String className, byte[] lastLoad) {
+		this(className);
+		this.lastLoad = lastLoad;
+	}
+
+
 	// should probably get a list of flowpoint definitions
 	public void collectFlowpoints() throws IOException {
-		ClassReader cr = new ClassReader(clazz);
+		ClassReader cr = null;
+		
+		if(lastLoad==null){
+			cr = new ClassReader(clazz);
+		}else{
+			cr = new ClassReader(lastLoad);
+		}
 		// ClassWriter cw = new ClassWriter(cr, ClassWriter.COMPUTE_FRAMES);
 
 		ClassVisitor cv = new CollectFlowpointDetails(null, clazz);

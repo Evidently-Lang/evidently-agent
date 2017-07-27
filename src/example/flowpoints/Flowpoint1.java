@@ -4,15 +4,13 @@ import org.evidently.agent.ASTType;
 import org.evidently.agent.Flowpoint;
 import org.evidently.agent.MethodCall;
 
-public class Flowpoint1  implements Flowpoint {
+public class Flowpoint1   {
 
-	@Override
 	public String getName() {
 		// TODO Auto-generated method stub
 		return null;
 	}
 
-	@Override
 	public String getFlowpointFor(String scope, String type, String currentClass, String currentMethod, String name,
 			ASTType astType, MethodCall lastMethodCall) {
 		// TODO Auto-generated method stub

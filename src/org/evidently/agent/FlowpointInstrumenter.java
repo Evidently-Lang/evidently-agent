@@ -2,6 +2,8 @@ package org.evidently.agent;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -25,6 +27,7 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.TypePath;
 
 import static org.objectweb.asm.Opcodes.*;
+
 /**
  * Tagging of Flowpoints
  * 
@@ -54,30 +57,45 @@ public class FlowpointInstrumenter {
 	private String currentMethodSignature;
 
 	private Stack<String> currentClass = new Stack<String>();
-	private List<Flowpoint> flowpoints;
+	private List<Class<? extends Flowpoint>> flowpoints;
 	private FlowpointCollector flowpointCollector;
-	
-	public FlowpointInstrumenter(String clazz, FlowpointCollector flowpointCollector, List<Flowpoint> flowpoints) {
+	private byte[] lastLoad;
+
+	public FlowpointInstrumenter(String clazz, FlowpointCollector flowpointCollector,
+			List<Class<? extends Flowpoint>> flowpoints) {
 		this.clazz = clazz;
 		this.flowpoints = flowpoints;
 		this.flowpointCollector = flowpointCollector;
-		
+
 		int i = clazz.lastIndexOf('/');
 		currentPackage = clazz.substring(0, i).replaceAll("/", ".");
 		currentClass.push(clazz.substring(i + 1));
 
 	}
-	
+
+	public FlowpointInstrumenter(String className, byte[] lastLoad, FlowpointCollector c,
+			List<Class<? extends Flowpoint>> flowpoints) {
+		this(className, c, flowpoints);
+		this.lastLoad = lastLoad;
+
+	}
+
 	public ClassWriter instrument() throws IOException {
-		ClassReader cr = new ClassReader(clazz);
+		ClassReader cr = null;
+
+		if (lastLoad != null) {
+			cr = new ClassReader(clazz);
+		} else {
+			cr = new ClassReader(lastLoad);
+		}
+
 		ClassWriter cw = new ClassWriter(cr, ClassWriter.COMPUTE_FRAMES);
 
 		ClassVisitor cv = new FlowpointTaggingClassVisitor(cw, clazz);
 		cr.accept(cv, 0);
-				
+
 		return cw;
 	}
-
 
 	public class FlowpointTaggingClassVisitor extends ClassVisitor {
 		private String className;
@@ -128,215 +146,232 @@ public class FlowpointInstrumenter {
 		public FlowpointTaggingMethodVisitor(int api, MethodVisitor mv) {
 			super(api, mv);
 		}
-		
-		private void updateLocal(Slot s, String flowpointName){
-			
-			if(s==null) return;
-			
-			
-			{
-				if(s.isObject()){
-					mv.visitVarInsn(ALOAD, s.slot);
-				}else{
-					mv.visitVarInsn(ILOAD, s.slot);					
-				}
-				
-				int registers[] = new int[]{ICONST_0,ICONST_1,ICONST_2,ICONST_3,ICONST_4,ICONST_5};
 
-				// build the sinks array 		
-				if(s!=null && s.sinks!=null && s.sources!=null && s.sinks.size() > 0 && s.sources.size() > 0){
-				
-					if(s.sinks.size() > 6 || s.sources.size() > 6){
+		private void updateLocal(Slot s, String flowpointName) {
+
+			if (s == null)
+				return;
+
+			{
+				if (s.isObject()) {
+					mv.visitVarInsn(ALOAD, s.slot);
+				} else {
+					mv.visitVarInsn(ILOAD, s.slot);
+				}
+
+				int registers[] = new int[] { ICONST_0, ICONST_1, ICONST_2, ICONST_3, ICONST_4, ICONST_5 };
+
+				// build the sinks array
+				if (s != null && s.sinks != null && s.sources != null && s.sinks.size() > 0 && s.sources.size() > 0) {
+
+					if (s.sinks.size() > 6 || s.sources.size() > 6) {
 						throw new IllegalArgumentException("A label cannot be initailized with more that 6 members");
 					}
-					
+
 					mv.visitTypeInsn(NEW, "org/evidently/monitor/Label");
 					mv.visitInsn(DUP);
 
 					mv.visitIntInsn(BIPUSH, s.sinks.size());
 					mv.visitTypeInsn(ANEWARRAY, "java/lang/String");
-	
-					for(int i=0; i< s.sinks.size(); i++){
+
+					for (int i = 0; i < s.sinks.size(); i++) {
 						mv.visitInsn(DUP);
 						mv.visitInsn(ICONST_0);
 						mv.visitLdcInsn(s.sinks.get(i));
 						mv.visitInsn(AASTORE);
 					}
-					
 
 					// build the sources array
 					mv.visitIntInsn(BIPUSH, s.sources.size());
 					mv.visitTypeInsn(ANEWARRAY, "java/lang/String");
-	
-					
-					for(int i=0; i< s.sources.size(); i++){
+
+					for (int i = 0; i < s.sources.size(); i++) {
 						mv.visitInsn(DUP);
 						mv.visitInsn(ICONST_0);
 						mv.visitLdcInsn(s.sources.get(i));
 						mv.visitInsn(AASTORE);
 					}
-					
-					if(flowpointName!=null){
-						mv.visitFieldInsn(GETSTATIC, "org/evidently/policy/PolicyElementType", "FLOWPOINT", "Lorg/evidently/policy/PolicyElementType;");
+
+					if (flowpointName != null) {
+						mv.visitFieldInsn(GETSTATIC, "org/evidently/policy/PolicyElementType", "FLOWPOINT",
+								"Lorg/evidently/policy/PolicyElementType;");
 						mv.visitLdcInsn(flowpointName);
-						mv.visitMethodInsn(INVOKESPECIAL, "org/evidently/monitor/Label", "<init>", "([Ljava/lang/String;[Ljava/lang/String;Lorg/evidently/policy/PolicyElementType;Ljava/lang/String;)V", false);
-					}else{
-						mv.visitMethodInsn(INVOKESPECIAL, "org/evidently/monitor/Label", "<init>", "([Ljava/lang/String;[Ljava/lang/String;)V", false);
+						mv.visitMethodInsn(INVOKESPECIAL, "org/evidently/monitor/Label", "<init>",
+								"([Ljava/lang/String;[Ljava/lang/String;Lorg/evidently/policy/PolicyElementType;Ljava/lang/String;)V",
+								false);
+					} else {
+						mv.visitMethodInsn(INVOKESPECIAL, "org/evidently/monitor/Label", "<init>",
+								"([Ljava/lang/String;[Ljava/lang/String;)V", false);
 					}
-				}else{
+				} else {
 					mv.visitInsn(ACONST_NULL);
 				}
-				
-				mv.visitMethodInsn(INVOKESTATIC, "org/evidently/monitor/SecurityLabelManager", "update", typeToUpdateSignature(s.varType), false);
-				
-				if(s.isObject()==false && s!=null){
+
+				mv.visitMethodInsn(INVOKESTATIC, "org/evidently/monitor/SecurityLabelManager", "update",
+						typeToUpdateSignature(s.varType), false);
+
+				if (s.isObject() == false && s != null) {
 					mv.visitVarInsn(ISTORE, s.slot); // we have to write back.
 				}
-				
+
 			}
-				
+
 		}
-		
-		
 
 		@Override
 		public void visitIincInsn(int var, int increment) {
 			super.visitIincInsn(var, increment);
-			
+
 			updateLocal(var);
 		}
 
-		private void updateLocal(int var){
+		private void updateLocal(int var) {
 			// get the slot
-			Slot s = flowpointCollector.findSlot(currentPackage, currentClass.peek(), currentMethod, currentMethodDesc, currentMethodSignature, var);
-			
+			Slot s = flowpointCollector.findSlot(currentPackage, currentClass.peek(), currentMethod, currentMethodDesc,
+					currentMethodSignature, var);
+
 			// lets' see if this particular var instruction is part of a
 			// flowpoint
 			String flowPointName = null;
-			
-			for(Flowpoint fp : flowpoints){
-				
-				 String scope = currentPackage;
-				 String type  = s.varType;
-				 String _currentClass = currentClass.peek();
-				 String _currentMethod = currentMethod;
-				 String _name = s.v;
-				 ASTType astType = ASTType.FIELD;
-				 MethodCall _lastMethodCall = lastMethodCall;
-				 
-				 String fpn = fp.getFlowpointFor(scope, type, _currentClass, _currentMethod, _name, astType, _lastMethodCall);
-				 
-				 if(fpn!=null){
-					 
-					 if(flowPointName!=null){
-						 throw new IllegalArgumentException("Flowpoint " + fpn + " is ambiguous. Please review flowpoint defintions");
-					 }else{
-						 flowPointName = fpn;
-					 }
-				 }
-						 
+
+			if (s != null) {
+				for (Class<? extends Flowpoint> fpc : flowpoints) {
+
+					String scope = currentPackage;
+					String type = s.varType;
+					String _currentClass = currentClass.peek();
+					String _currentMethod = currentMethod;
+					String _name = s.v;
+					ASTType astType = ASTType.FIELD;
+					MethodCall _lastMethodCall = lastMethodCall;
+
+					Constructor<?> cons;
+					String fpn = null;
+					
+					try {
+						cons = fpc.getConstructor(String.class, String.class, String.class, String.class, String.class,
+								ASTType.class, MethodCall.class);
+						Flowpoint fp = (Flowpoint) cons.newInstance(scope, type, _currentClass, _currentMethod, _name,
+								astType, _lastMethodCall);
+						fpn = fp.getFlowpointFor();
+					} catch (NoSuchMethodException | SecurityException | InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+						e.printStackTrace();
+					}
+					
+
+					if (fpn != null) {
+						if (flowPointName != null) {
+							throw new IllegalArgumentException(
+									"Flowpoint " + fpn + " is ambiguous. Please review flowpoint defintions");
+						} else {
+							flowPointName = fpn;
+						}
+					}
+
+				}
 			}
 
-			updateLocal(s,  flowPointName);
+			updateLocal(s, flowPointName);
 		}
-		
 
-		public void updateField(Slot s, String flowPointName, int opcode, String owner, String name, String desc)
-		{
+		public void updateField(Slot s, String flowPointName, int opcode, String owner, String name, String desc) {
 			// need to know if field is static
 			// need to know if is a int or a object
 			{
-				if(opcode==PUTSTATIC){
+				if (opcode == PUTSTATIC) {
 					mv.visitFieldInsn(GETSTATIC, owner, name, desc);
-	
-				}else{
+
+				} else {
 					mv.visitVarInsn(Opcodes.ALOAD, lastSlot);
 					mv.visitVarInsn(Opcodes.ALOAD, lastSlot);
 
-					mv.visitFieldInsn(GETFIELD, owner, name, desc);					
+					mv.visitFieldInsn(GETFIELD, owner, name, desc);
 				}
-								
-				int registers[] = new int[]{ICONST_0,ICONST_1,ICONST_2,ICONST_3,ICONST_4,ICONST_5};
 
-				// build the sinks array 		
-				if(s!=null && s.sinks!=null && s.sources!=null && s.sinks.size() > 0 && s.sources.size() > 0){
-				
-					if(s.sinks.size() > 6 || s.sources.size() > 6){
+				int registers[] = new int[] { ICONST_0, ICONST_1, ICONST_2, ICONST_3, ICONST_4, ICONST_5 };
+
+				// build the sinks array
+				if (s != null && s.sinks != null && s.sources != null && s.sinks.size() > 0 && s.sources.size() > 0) {
+
+					if (s.sinks.size() > 6 || s.sources.size() > 6) {
 						throw new IllegalArgumentException("A label cannot be initailized with more that 6 members");
 					}
-					
+
 					mv.visitTypeInsn(NEW, "org/evidently/monitor/Label");
 					mv.visitInsn(DUP);
 
 					mv.visitIntInsn(BIPUSH, s.sinks.size());
 					mv.visitTypeInsn(ANEWARRAY, "java/lang/String");
-	
-					for(int i=0; i< s.sinks.size(); i++){
+
+					for (int i = 0; i < s.sinks.size(); i++) {
 						mv.visitInsn(DUP);
 						mv.visitInsn(ICONST_0);
 						mv.visitLdcInsn(s.sinks.get(i));
 						mv.visitInsn(AASTORE);
 					}
-					
 
 					// build the sources array
 					mv.visitIntInsn(BIPUSH, s.sources.size());
 					mv.visitTypeInsn(ANEWARRAY, "java/lang/String");
-	
-					
-					for(int i=0; i< s.sources.size(); i++){
+
+					for (int i = 0; i < s.sources.size(); i++) {
 						mv.visitInsn(DUP);
 						mv.visitInsn(ICONST_0);
 						mv.visitLdcInsn(s.sources.get(i));
 						mv.visitInsn(AASTORE);
 					}
-					
-					if(flowPointName!=null){
-						mv.visitFieldInsn(GETSTATIC, "org/evidently/policy/PolicyElementType", "FLOWPOINT", "Lorg/evidently/policy/PolicyElementType;");
+
+					System.out.println("[Evidently] [TAGGING] [UPDATE] Adding field update instruction for flowpoint: "
+							+ flowPointName);
+
+					if (flowPointName != null) {
+						mv.visitFieldInsn(GETSTATIC, "org/evidently/policy/PolicyElementType", "FLOWPOINT",
+								"Lorg/evidently/policy/PolicyElementType;");
 						mv.visitLdcInsn(flowPointName);
-						mv.visitMethodInsn(INVOKESPECIAL, "org/evidently/monitor/Label", "<init>", "([Ljava/lang/String;[Ljava/lang/String;Lorg/evidently/policy/PolicyElementType;Ljava/lang/String;)V", false);
-					}else{
-						mv.visitMethodInsn(INVOKESPECIAL, "org/evidently/monitor/Label", "<init>", "([Ljava/lang/String;[Ljava/lang/String;)V", false);
+						mv.visitMethodInsn(INVOKESPECIAL, "org/evidently/monitor/Label", "<init>",
+								"([Ljava/lang/String;[Ljava/lang/String;Lorg/evidently/policy/PolicyElementType;Ljava/lang/String;)V",
+								false);
+					} else {
+						mv.visitMethodInsn(INVOKESPECIAL, "org/evidently/monitor/Label", "<init>",
+								"([Ljava/lang/String;[Ljava/lang/String;)V", false);
 					}
-				}else{
+				} else {
 					mv.visitInsn(ACONST_NULL);
 				}
-				
-				mv.visitMethodInsn(INVOKESTATIC, "org/evidently/monitor/SecurityLabelManager", "update", typeToUpdateSignature(desc), false);
-				
-				if(TypeUtils.getType(desc) != Type.OBJECT){
-					if(opcode==PUTSTATIC){
+
+				mv.visitMethodInsn(INVOKESTATIC, "org/evidently/monitor/SecurityLabelManager", "update",
+						typeToUpdateSignature(desc), false);
+
+				if (TypeUtils.getType(desc) != Type.OBJECT) {
+					if (opcode == PUTSTATIC) {
 						mv.visitFieldInsn(PUTSTATIC, owner, name, desc);
-		
-					}else{
-						mv.visitFieldInsn(PUTFIELD, owner, name, desc);					
+
+					} else {
+						mv.visitFieldInsn(PUTFIELD, owner, name, desc);
 					}
-		
+
 				}
-				
+
 			}
 
-			
-			
-			
 			// if it is not an object, we do a PUTFIELD to write it back.
 		}
-		
-		private String typeToUpdateSignature(String t){
-			//"(Ljava/lang/Object;Lorg/evidently/monitor/Label;)V"
-			//"(CLorg/evidently/monitor/Label;)C"
-			//"(ILorg/evidently/monitor/Label;)I"
-			//([ILorg/evidently/monitor/Label;)[I
 
-			if(TypeUtils.getType(t)==Type.OBJECT){
+		private String typeToUpdateSignature(String t) {
+			// "(Ljava/lang/Object;Lorg/evidently/monitor/Label;)V"
+			// "(CLorg/evidently/monitor/Label;)C"
+			// "(ILorg/evidently/monitor/Label;)I"
+			// ([ILorg/evidently/monitor/Label;)[I
+
+			if (TypeUtils.getType(t) == Type.OBJECT) {
 				return "(Ljava/lang/Object;Lorg/evidently/monitor/Label;)V";
 			}
-			
+
 			return String.format("(%sLorg/evidently/monitor/Label;)%s", t, t);
 		}
-		
-		private void updateField(int opcode, String owner, String name, String desc){
-			
+
+		private void updateField(int opcode, String owner, String name, String desc) {
+
 			Slot s = flowpointCollector.findSlot(currentPackage, currentClass.peek(), name);
 
 			String flowPointName = null;
@@ -349,9 +384,21 @@ public class FlowpointInstrumenter {
 			ASTType astType = ASTType.FIELD;
 			MethodCall _lastMethodCall = lastMethodCall;
 
-			for (Flowpoint fp : flowpoints) {
-				String fpn = fp.getFlowpointFor(scope, type, _currentClass, _currentMethod, _name, astType,
-						_lastMethodCall);
+			for (Class <? extends Flowpoint> fpc : flowpoints) {
+				
+				Constructor<?> cons;
+				String fpn = null;
+				
+				try {
+					cons = fpc.getConstructor(String.class, String.class, String.class, String.class, String.class,
+							ASTType.class, MethodCall.class);
+					Flowpoint fp = (Flowpoint) cons.newInstance(scope, type, _currentClass, _currentMethod, _name,
+							astType, _lastMethodCall);
+					fpn = fp.getFlowpointFor();
+				} catch (NoSuchMethodException | SecurityException | InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+					e.printStackTrace();
+				}
+				
 
 				if (fpn != null) {
 					if (flowPointName != null) {
@@ -367,26 +414,27 @@ public class FlowpointInstrumenter {
 			updateField(s, flowPointName, opcode, owner, name, desc);
 
 		}
+
 		private int lastSlot;
-		
+
 		@Override
 		public void visitVarInsn(int opcode, int var) {
 
 			System.out.println(String.format("[Evidently] [TAGGING] Visiting variable instruction: opcode=%d,slot=%d",
-					opcode, var));		
+					opcode, var));
 			lastSlot = var;
 
 			if (var == 0) {
 				System.out.println(
 						"[Evidently] [TAGGING] Ignoring THIS reference (because it's probably a field reference)");
-				
+
 				super.visitVarInsn(opcode, var);
-				
+
 			} else {
 				super.visitVarInsn(opcode, var);
 				updateLocal(var);
 			}
-			
+
 		}
 
 		@Override
@@ -422,10 +470,9 @@ public class FlowpointInstrumenter {
 					"[Evidently] [TAGGING] Visiting field instruction: opcode=%d,owner=%s,name=%s,desc=%s", opcode,
 					owner, name, desc));
 
-			
 			super.visitFieldInsn(opcode, owner, name, desc);
 
-			// a potential flowpoint -- also, we are only really interested in 
+			// a potential flowpoint -- also, we are only really interested in
 			if (opcode == Opcodes.PUTFIELD || opcode == Opcodes.PUTSTATIC) {
 				updateField(opcode, owner, name, desc);
 			}
@@ -441,4 +488,4 @@ public class FlowpointInstrumenter {
 
 	}
 
-	}
+}
