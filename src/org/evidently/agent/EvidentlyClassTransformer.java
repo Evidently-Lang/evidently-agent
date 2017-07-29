@@ -32,40 +32,40 @@ public class EvidentlyClassTransformer implements ClassFileTransformer {
 	public byte[] transform(final ClassLoader loader, final String className, final Class<?> classBeingRedefined,
 			final ProtectionDomain protectionDomain, final byte[] classfileBuffer) throws IllegalClassFormatException {
 
-		System.out.println(String.format("[Evidently] [AGENT] Starting transformation of [%s]", className));
-
-		
-		if (className==null 
-				|| className.startsWith("org/evidently")
-				|| className.startsWith("sun/")
-				|| className.startsWith("org/aspectj")
-				|| className.startsWith("edu/columbia/")){
-
-			System.out.println(String.format("[Evidently] [AGENT] Skipping transformation of [%s]", className));
-
-			return null;
-		}
- 
-		
-		
-		//if(1==1){ return null; }
-		
-		System.out.println("[Evidently] [AGENT] Bytecode Transforming Class: " + className);
-		
-		try {
-			FlowpointCollector c = new FlowpointCollector(className);
-			c.collectFlowpoints();
-
-			FlowpointInstrumenter fpi = new FlowpointInstrumenter(className, c, Evidently.flowpoints);
-
-			ClassWriter cw = fpi.instrument();
-
-			return cw.toByteArray();
-
-		} catch (IOException e) {
-			e.printStackTrace();
-			System.exit(1);
-		}
+//		System.out.println(String.format("[Evidently] [AGENT] Starting transformation of [%s]", className));
+//
+//		
+//		if (className==null 
+//				|| className.startsWith("org/evidently")
+//				|| className.startsWith("sun/")
+//				|| className.startsWith("org/aspectj")
+//				|| className.startsWith("edu/columbia/")){
+//
+//			System.out.println(String.format("[Evidently] [AGENT] Skipping transformation of [%s]", className));
+//
+//			return null;
+//		}
+// 
+//		
+//		
+//		//if(1==1){ return null; }
+//		
+//		System.out.println("[Evidently] [AGENT] Bytecode Transforming Class: " + className);
+//		
+//		try {
+//			FlowpointCollector c = new FlowpointCollector(className);
+//			c.collectFlowpoints();
+//
+//			FlowpointInstrumenter fpi = new FlowpointInstrumenter(className, c, Evidently.flowpoints);
+//
+//			ClassWriter cw = fpi.instrument();
+//
+//			return cw.toByteArray();
+//
+//		} catch (IOException e) {
+//			e.printStackTrace();
+//			System.exit(1);
+//		}
 
 		
 		return null;
@@ -106,15 +106,13 @@ public class EvidentlyClassTransformer implements ClassFileTransformer {
 		}
 	}
 	
+	
 	public static byte[] _transform(final ClassLoader loader, final String className, final Class<?> classBeingRedefined,
 			final ProtectionDomain protectionDomain, final byte[] classfileBuffer, byte[] lastLoad) throws IllegalClassFormatException {
 
-		//System.out.println(String.format("[Evidently] [AGENT] Starting transformation of [%s]", className));
-
-		
-		
-		
-		
+		if(Evidently.debug){
+			//System.out.println(String.format("[Evidently] [AGENT] Starting transformation of [%s]", className));
+		}
 		
 		if (className==null 
 				|| className.startsWith("org/evidently")
@@ -123,7 +121,9 @@ public class EvidentlyClassTransformer implements ClassFileTransformer {
 				|| className.startsWith("org/reflections")
 				|| className.startsWith("edu/columbia/")){
 
-			//System.out.println(String.format("[Evidently] [AGENT] Skipping transformation of [%s]", className));
+			if(Evidently.debug){
+				///System.out.println(String.format("[Evidently] [AGENT] Skipping transformation of [%s]", className));
+			}
 
 			return lastLoad;
 		}
@@ -132,23 +132,66 @@ public class EvidentlyClassTransformer implements ClassFileTransformer {
 			return lastLoad;
 		}
  
-		//System.out.println("[Evidently] [AGENT] Bytecode Transforming Class: " + className);
+		if(Evidently.debug){
+			System.out.println("[Evidently] [AGENT] Bytecode Transforming Class: " + className);
+		}
 		
 		try {
-			FlowpointCollector c = new FlowpointCollector(className, lastLoad);
-			c.collectFlowpoints();
 
-			FlowpointInstrumenter fpi = new FlowpointInstrumenter(className, lastLoad, c, Evidently.flowpoints);
+			{
+				if(Evidently.debug){
+					new File("bin-debug/" +className).mkdirs();
 
-			ClassWriter cw = fpi.instrument();
+					FileOutputStream fos = new FileOutputStream("bin-debug/" +className +"-orig.class");
+					fos.write(lastLoad);
+					fos.close();
+				}
 
-			new File("bin-debug/" +className).mkdirs();
-			FileOutputStream fos = new FileOutputStream("bin-debug/" +className +".class");
-			fos.write(cw.toByteArray());
-			fos.close();
-
+			}
 			
-			return cw.toByteArray();
+			// transformation #1, add pre taint checks
+			{
+				FlowpointCollector c = new FlowpointCollector(className, lastLoad);
+				c.collectFlowpoints();
+				
+				FlowpointVariableRewriter rw = new FlowpointVariableRewriter(className, lastLoad, c);
+				
+				if(Evidently.debug){
+					System.out.println("[Evidently] [AGENT] Bytecode Transforming Class [PASS1] " + className);
+				}
+				ClassWriter cw = rw.instrument();
+				
+				if(Evidently.debug){
+					FileOutputStream fos = new FileOutputStream("bin-debug/" +className +"-xform1.class");
+					fos.write(cw.toByteArray());
+					fos.close();
+				}
+				
+				lastLoad = cw.toByteArray();
+
+			}
+			
+			// transformation #2, update and store checks
+			{
+				FlowpointCollector c = new FlowpointCollector(className, lastLoad);
+				c.collectFlowpoints();
+	
+				FlowpointInstrumenter fpi = new FlowpointInstrumenter(className, lastLoad, c, Evidently.flowpoints);
+	
+				if(Evidently.debug){
+					System.out.println("[Evidently] [AGENT] Bytecode Transforming Class [PASS2] " + className);
+				}
+				
+				ClassWriter cw = fpi.instrument();
+	
+				if(Evidently.debug){
+					FileOutputStream fos = new FileOutputStream("bin-debug/" +className +"-xform2.class");
+					fos.write(cw.toByteArray());
+					fos.close();
+				}
+				
+				return cw.toByteArray();
+			}
 
 		} catch (IOException e) {
 			e.printStackTrace();

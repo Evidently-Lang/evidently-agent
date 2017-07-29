@@ -17,6 +17,7 @@ public class Evidently {
 	}
 
 	public static List<Class <? extends Flowpoint>> flowpoints = null; //new ArrayList<Flowpoint>();
+	public static boolean debug = true;
 
 	public static void premain$$PHOSPHORTAGGED(String agentArgs, Instrumentation inst, ControlTaintTagStack ctts){
 		System.out.println(String.format("[Evidently] [AGENT] Starting Phosphor Shim..."));

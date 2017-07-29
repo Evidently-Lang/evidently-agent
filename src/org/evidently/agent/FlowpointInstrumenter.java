@@ -7,6 +7,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.Stack;
 
@@ -83,7 +84,7 @@ public class FlowpointInstrumenter {
 	public ClassWriter instrument() throws IOException {
 		ClassReader cr = null;
 
-		if (lastLoad != null) {
+		if (lastLoad == null) {
 			cr = new ClassReader(clazz);
 		} else {
 			cr = new ClassReader(lastLoad);
@@ -96,7 +97,8 @@ public class FlowpointInstrumenter {
 
 		return cw;
 	}
-
+	
+	
 	public class FlowpointTaggingClassVisitor extends ClassVisitor {
 		private String className;
 

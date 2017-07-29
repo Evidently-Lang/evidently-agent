@@ -196,7 +196,7 @@ public class ASMTest {
 
 	}
 
-	private static Class loadClass(byte[] b, String name) {
+	static Class loadClass(byte[] b, String name) {
 		// override classDefine (as it is protected) and define the class.
 		Class clazz = null;
 		try {
