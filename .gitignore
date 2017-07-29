@@ -1,1 +1,4 @@
 /bin/
+/bin-debug/
+/debug/
+/debug-preinst/
