@@ -18,48 +18,67 @@ public class SomeClass {
 	// System.out.println("" + msg);
 	// }
 
-//	public void test2() {
-//		System.out.println("TESTING");
-//
-//		System.out.println("Assignment to a1");
-//		int a = MultiTainter.taintedInt(3, "a");
-//
-//		System.out.println("Assignment to b1");
-//		int b = 3;
-//
-//		System.out.println("Assignment to a2");
-//		// Taint t1 = MultiTainter.getTaint(a);
-//		// System.out.println(t1);
-//		a = b + 100;
-//
-//		System.out.println("Assignment to a3");
-//		// Taint t2 = MultiTainter.getTaint(a);
-//		// System.out.println(t2);
-//
-//		a = b + 100;
-//
-//	}
+	public void test2() {
+		System.out.println("TESTING");
+
+		System.out.println("Assignment to a1");
+		int a = MultiTainter.taintedInt(3, "a");
+
+		System.out.println("Assignment to b1");
+		int b = 3;
+
+		System.out.println("Assignment to a2");
+		// Taint t1 = MultiTainter.getTaint(a);
+		// System.out.println(t1);
+		a = b + 100;
+
+		System.out.println("Assignment to a3");
+		// Taint t2 = MultiTainter.getTaint(a);
+		// System.out.println(t2);
+
+		a = b + 100;
+
+	}
 
 	public int test() {
+		 System.out.println("[BEFORE] MultiTainter.taintedInt()");
 		 myField = MultiTainter.taintedInt(3, "a");
-		// int b = 3;
-		//
-		// System.out.println("Assignment to b1");
-		// b = myField + 1;
-		//
-		// System.out.println("Assignment to myField1");
-		// myField = 100 + 2;
-		//
-		// System.out.println("Assignment to myField2");
-		// myField = 100 + 2;
-		//
+		 
+		System.out.println("[BEFORE] assign b");
+		 int b = 3;
+		
+		 System.out.println("Assignment to b1");
+		 b = myField + 1;
+		
+
+		 System.out.println("Assignment to b2");
+		 b = myField + 1;
+
+		 System.out.println("Assignment to myField1");
+		 myField = myField*2;
+		
+		 System.out.println("Assignment to mySField1");		 
+		 mySField = myField;
+		 
+		 System.out.println("Assignment to myField2");
+		 myField = 100 + 2;
+		 
+		 System.out.println("Assignment to mySField2");		 
+		 mySField = myField + 1;
+////		 		 
+		 System.out.println("[BEFORE] Assignment to mySField3");		 
+		 mySField = myField + 2;
+		 
+		
 		return 3;
 
 	}
 
 	public static void main(String args[]) {
+		System.out.println("[BEFORE] new");
 		SomeClass sc = new SomeClass();
 
+		System.out.println("[BEFORE] callsc");		
 		sc.test();
 	}
 

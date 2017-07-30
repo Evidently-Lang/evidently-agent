@@ -170,6 +170,9 @@ public class FlowpointVariableRewriter {
 			System.out.println("[Evidently] [FPVRW] Adding a taint check prior to assignment of: " + s.name);
 
 			addTaintCheck(s);
+			
+			localOffset++;
+			
 		}
 		
 		private void addTaintCheck(Slot s){
@@ -182,7 +185,7 @@ public class FlowpointVariableRewriter {
 
 			mv.visitVarInsn(ASTORE, idx);
 
-			if (Evidently.debug) {
+			if (Evidently.debug && false) {
 				mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
 				mv.visitVarInsn(ALOAD, idx);
 				mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "println", "(Ljava/lang/Object;)V", false);
@@ -190,7 +193,7 @@ public class FlowpointVariableRewriter {
 			}
 
 			// log the pretaint
-			if (Evidently.debug && false) {
+			if (Evidently.debug) {
 				mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
 				mv.visitTypeInsn(NEW, "java/lang/StringBuilder");
 				mv.visitInsn(DUP);
@@ -208,64 +211,66 @@ public class FlowpointVariableRewriter {
 		private void addTaintCheckToLocal(Slot s, int opcode, int var)
 		{
 
-			mv.visitVarInsn(opcode - 33, var); 
+			mv.visitVarInsn(opcode - 33, var + localOffset); 
 
 			System.out.println("[Evidently] [FPVRW] Adding a taint check prior to assignment of: " + s.v);
 
 			addTaintCheck(s);
 			
+			//localOffset++;
+			
 		}
-		
+
 		@Override
 		public void visitLineNumber(int line, Label start) {
 
 			System.out.println("[Evidently] [FPVRW] Visit Line: " + line + " start=" + start);
 			super.visitLineNumber(line, start);
 
-			int nextLine = flowpointCollector.nextLineNumber(line);
+			//int nextLine = flowpointCollector.nextLineNumber(line);
 			
 			//
 			// The next line, even if it writes isn't in this method
 			//
-			if(currentMethodBoundaries.contains(nextLine)==false){
-				return;
-			}
+//			if(currentMethodBoundaries.contains(nextLine)==false){
+//				return;
+//			}
 			
 			//
 			// If the current line is a field write AND
 			// we won't get another chance to capture the write
 			// we insert the write here
 			//
-			{
-				// this line writes
-				if(flowpointCollector.lineNumberWrites(line)){
-					Triple<Integer, Integer, Slot> write = flowpointCollector.getWriteAtLineNumber(line);
-					
-					// it's a field
-					if(write.getThird()!=null){
-						
-						TreeSet<Integer> ts = new TreeSet<Integer>(currentMethodBoundaries);
-						
-						if(line == ts.first()){
-							System.out.println("[Evidently] [FPVRW] First Line Write at = " + line);
-							addTaintCheckToField(write.getThird(), write.getFirst());
-							
-							return;
-						}
-						
-					}
+//			{
+//				// this line writes
+//				if(flowpointCollector.lineNumberWrites(line)){
+//					Triple<Integer, Integer, Slot> write = flowpointCollector.getWriteAtLineNumber(line);
+//					
+//					// it's a field
+//					if(write.getThird()!=null){
+//						
+//						TreeSet<Integer> ts = new TreeSet<Integer>(currentMethodBoundaries);
+//						
+//						if(line == ts.first()){
+//							System.out.println("[Evidently] [FPVRW] First Line Write at = " + line);
+//							addTaintCheckToField(write.getThird(), write.getFirst());
+//							
+//							return;
+//						}
+//						
+//					}
+//
+//				}
+//			}
 
-				}
-			}
+//			System.out.println("[Evidently] [FPVRW] Next Line= " + nextLine);
+//			System.out.println("[Evidently] [FPVRW] Next Line Writes? " + flowpointCollector.nextLineNumberWrites(line));
 
-			System.out.println("[Evidently] [FPVRW] Next Line= " + nextLine);
-			System.out.println("[Evidently] [FPVRW] Next Line Writes? " + flowpointCollector.nextLineNumberWrites(line));
-
-			if (flowpointCollector.nextLineNumberWrites(line) == false) {
+			if (flowpointCollector.lineNumberWrites(line) == false) {
 				return;
 			}
 
-			Triple<Integer, Integer, Slot> write = flowpointCollector.getWriteAtLineNumber(nextLine);
+			Triple<Integer, Integer, Slot> write = flowpointCollector.getWriteAtLineNumber(line);
 			
 			if(write.getThird()==null){ // it's a local
 				Slot s = flowpointCollector.findSlot(currentPackage, currentClass.peek(), currentMethod, currentMethodDesc,
@@ -282,6 +287,22 @@ public class FlowpointVariableRewriter {
 			}
 		}
 
+		@Override
+		public void visitCode() {
+			// TODO Auto-generated method stub
+			super.visitCode();
+		}
+
+		@Override
+		public void visitFrame(int type, int nLocal, Object[] local, int nStack, Object[] stack) {
+			// TODO Auto-generated method stub
+			super.visitFrame(type, nLocal, local, nStack, stack);
+		}
+		
+		
+
 	}
+	
+	
 
 }
