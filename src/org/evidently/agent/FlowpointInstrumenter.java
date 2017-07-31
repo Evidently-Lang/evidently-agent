@@ -140,6 +140,7 @@ public class FlowpointInstrumenter {
 	public class FlowpointTaggingMethodVisitor extends MethodVisitor {
 
 		private MethodCall lastMethodCall;
+		private int lastTaintSlot=-1;
 
 		public FlowpointTaggingMethodVisitor(MethodVisitor mv, String name, String className) {
 			this(Opcodes.ASM5, mv);
@@ -208,7 +209,16 @@ public class FlowpointInstrumenter {
 				} else {
 					mv.visitInsn(ACONST_NULL);
 				}
-
+				// load the last taint
+				{
+					if(lastTaintSlot==-1){
+						mv.visitInsn(ACONST_NULL);						
+					}else{
+						mv.visitVarInsn(ALOAD, lastTaintSlot);
+						lastTaintSlot = -1;
+					}
+				}
+				
 				mv.visitMethodInsn(INVOKESTATIC, "org/evidently/monitor/SecurityLabelManager", "update",
 						typeToUpdateSignature(s.varType), false);
 
@@ -341,6 +351,16 @@ public class FlowpointInstrumenter {
 					mv.visitInsn(ACONST_NULL);
 				}
 
+				// load the last taint
+				{
+					if(lastTaintSlot==-1){
+						mv.visitInsn(ACONST_NULL);						
+					}else{
+						mv.visitVarInsn(ALOAD, lastTaintSlot);
+						lastTaintSlot = -1;
+					}
+				}
+				
 				mv.visitMethodInsn(INVOKESTATIC, "org/evidently/monitor/SecurityLabelManager", "update",
 						typeToUpdateSignature(desc), false);
 
@@ -360,16 +380,12 @@ public class FlowpointInstrumenter {
 		}
 
 		private String typeToUpdateSignature(String t) {
-			// "(Ljava/lang/Object;Lorg/evidently/monitor/Label;)V"
-			// "(CLorg/evidently/monitor/Label;)C"
-			// "(ILorg/evidently/monitor/Label;)I"
-			// ([ILorg/evidently/monitor/Label;)[I
-
+			
 			if (TypeUtils.getType(t) == Type.OBJECT) {
-				return "(Ljava/lang/Object;Lorg/evidently/monitor/Label;)V";
+				return "(Ljava/lang/Object;Lorg/evidently/monitor/Label;Ledu/columbia/cs/psl/phosphor/runtime/Taint;)V";
 			}
 
-			return String.format("(%sLorg/evidently/monitor/Label;)%s", t, t);
+			return String.format("(%sLorg/evidently/monitor/Label;Ledu/columbia/cs/psl/phosphor/runtime/Taint;)%s", t, t);
 		}
 
 		private void updateField(int opcode, String owner, String name, String desc) {
@@ -426,6 +442,8 @@ public class FlowpointInstrumenter {
 					opcode, var));
 			lastSlot = var;
 
+			
+			
 			if (var == 0) {
 				System.out.println(
 						"[Evidently] [TAGGING] Ignoring THIS reference (because it's probably a field reference)");
@@ -434,7 +452,27 @@ public class FlowpointInstrumenter {
 
 			} else {
 				super.visitVarInsn(opcode, var);
-				updateLocal(var);
+				
+				// DON'T do this for taint ghost fields 
+				Slot s = flowpointCollector.findSlot(currentPackage, currentClass.peek(), currentMethod, currentMethodDesc,
+						currentMethodSignature, var);
+				if(s!=null && s.v!=null && s.v.startsWith("evidentlyTaintCheck") && opcode==ALOAD){
+					
+					System.out.println(String.format("[Evidently] [TAGGING] Detected Taint Slot: opcode=%d,slot=%d",
+							opcode, var));
+
+					this.lastTaintSlot = var;
+				} else if(s!=null && s.v!=null && s.v.startsWith("evidentlyTaintCheck")){
+					
+					System.out.println(String.format("[Evidently] [TAGGING] Skipping reference to ghost variable: opcode=%d,slot=%d",
+							opcode, var));
+				}else{
+					
+					// make sure it's a write of some kind.
+					if(opcode >= ISTORE && opcode <= SASTORE){
+						updateLocal(var);
+					}
+				}
 			}
 
 		}
