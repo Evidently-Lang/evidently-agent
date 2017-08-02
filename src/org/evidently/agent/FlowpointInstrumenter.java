@@ -141,6 +141,7 @@ public class FlowpointInstrumenter {
 
 		private MethodCall lastMethodCall;
 		private int lastTaintSlot=-1;
+		private int lastLineNumber;
 
 		public FlowpointTaggingMethodVisitor(MethodVisitor mv, String name, String className) {
 			this(Opcodes.ASM5, mv);
@@ -150,18 +151,34 @@ public class FlowpointInstrumenter {
 			super(api, mv);
 		}
 
+		@Override
+		public void visitLineNumber(int line, Label start) {
+			lastLineNumber = line;
+			super.visitLineNumber(line, start);
+		}
+
 		private void updateLocal(Slot s, String flowpointName) {
 
 			if (s == null)
 				return;
 
 			{
+				
+				Label l0 = new Label();				
+				mv.visitLabel(l0);
+				mv.visitLineNumber(lastLineNumber, l0);
+				
 				if (s.isObject()) {
 					mv.visitVarInsn(ALOAD, s.slot);
 				} else {
 					mv.visitVarInsn(ILOAD, s.slot);
 				}
-
+				
+				Label l1 = new Label();				
+				mv.visitLabel(l1);
+				mv.visitLineNumber(lastLineNumber, l1);
+				
+				
 				int registers[] = new int[] { ICONST_0, ICONST_1, ICONST_2, ICONST_3, ICONST_4, ICONST_5 };
 
 				// build the sinks array
@@ -173,27 +190,40 @@ public class FlowpointInstrumenter {
 
 					mv.visitTypeInsn(NEW, "org/evidently/monitor/Label");
 					mv.visitInsn(DUP);
+					
+					Label l2 = new Label();				
+					mv.visitLabel(l2);
+					mv.visitLineNumber(lastLineNumber, l2);
+					
 
-					mv.visitIntInsn(BIPUSH, s.sinks.size());
+					mv.visitInsn(registers[s.sinks.size()]);
 					mv.visitTypeInsn(ANEWARRAY, "java/lang/String");
 
 					for (int i = 0; i < s.sinks.size(); i++) {
 						mv.visitInsn(DUP);
-						mv.visitInsn(ICONST_0);
+						mv.visitInsn(registers[i]);
 						mv.visitLdcInsn(s.sinks.get(i));
 						mv.visitInsn(AASTORE);
+												
 					}
 
+					Label la1 = new Label();				
+					mv.visitLabel(la1);
+					mv.visitLineNumber(lastLineNumber, la1);
+
 					// build the sources array
-					mv.visitIntInsn(BIPUSH, s.sources.size());
+					mv.visitInsn(registers[s.sources.size()]);
 					mv.visitTypeInsn(ANEWARRAY, "java/lang/String");
 
 					for (int i = 0; i < s.sources.size(); i++) {
 						mv.visitInsn(DUP);
-						mv.visitInsn(ICONST_0);
+						mv.visitInsn(registers[i]);
 						mv.visitLdcInsn(s.sources.get(i));
-						mv.visitInsn(AASTORE);
+						mv.visitInsn(AASTORE);												
 					}
+					Label la2 = new Label();				
+					mv.visitLabel(la2);
+					mv.visitLineNumber(lastLineNumber, la2);
 
 					if (flowpointName != null) {
 						mv.visitFieldInsn(GETSTATIC, "org/evidently/policy/PolicyElementType", "FLOWPOINT",
@@ -206,8 +236,19 @@ public class FlowpointInstrumenter {
 						mv.visitMethodInsn(INVOKESPECIAL, "org/evidently/monitor/Label", "<init>",
 								"([Ljava/lang/String;[Ljava/lang/String;)V", false);
 					}
+					
+					
+					Label l3 = new Label();				
+					mv.visitLabel(l3);
+					mv.visitLineNumber(lastLineNumber, l3);
+					
 				} else {
 					mv.visitInsn(ACONST_NULL);
+					
+					Label l4 = new Label();				
+					mv.visitLabel(l4);
+					mv.visitLineNumber(lastLineNumber, l4);
+					
 				}
 				// load the last taint
 				{
@@ -219,12 +260,20 @@ public class FlowpointInstrumenter {
 					}
 				}
 				
+				Label l5 = new Label();				
+				mv.visitLabel(l5);
+				mv.visitLineNumber(lastLineNumber, l5);
+				
 				mv.visitMethodInsn(INVOKESTATIC, "org/evidently/monitor/SecurityLabelManager", "update",
 						typeToUpdateSignature(s.varType), false);
 
 				if (s.isObject() == false && s != null) {
 					mv.visitVarInsn(ISTORE, s.slot); // we have to write back.
 				}
+				
+				Label l6 = new Label();				
+				mv.visitLabel(l6);
+				mv.visitLineNumber(lastLineNumber, l6);
 
 			}
 
@@ -312,23 +361,24 @@ public class FlowpointInstrumenter {
 					mv.visitTypeInsn(NEW, "org/evidently/monitor/Label");
 					mv.visitInsn(DUP);
 
-					mv.visitIntInsn(BIPUSH, s.sinks.size());
+					mv.visitInsn(registers[s.sinks.size()]);
+
 					mv.visitTypeInsn(ANEWARRAY, "java/lang/String");
 
 					for (int i = 0; i < s.sinks.size(); i++) {
 						mv.visitInsn(DUP);
-						mv.visitInsn(ICONST_0);
+						mv.visitInsn(registers[i]);
 						mv.visitLdcInsn(s.sinks.get(i));
 						mv.visitInsn(AASTORE);
 					}
 
 					// build the sources array
-					mv.visitIntInsn(BIPUSH, s.sources.size());
+					mv.visitInsn(registers[s.sources.size()]);
 					mv.visitTypeInsn(ANEWARRAY, "java/lang/String");
 
 					for (int i = 0; i < s.sources.size(); i++) {
 						mv.visitInsn(DUP);
-						mv.visitInsn(ICONST_0);
+						mv.visitInsn(registers[i]);
 						mv.visitLdcInsn(s.sources.get(i));
 						mv.visitInsn(AASTORE);
 					}

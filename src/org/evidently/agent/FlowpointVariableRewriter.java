@@ -1,32 +1,36 @@
 package org.evidently.agent;
 
-import static org.objectweb.asm.Opcodes.ALOAD;
-import static org.objectweb.asm.Opcodes.ASM5;
-import static org.objectweb.asm.Opcodes.ASTORE;
-import static org.objectweb.asm.Opcodes.DUP;
-import static org.objectweb.asm.Opcodes.GETFIELD;
-import static org.objectweb.asm.Opcodes.GETSTATIC;
-import static org.objectweb.asm.Opcodes.INVOKESPECIAL;
-import static org.objectweb.asm.Opcodes.INVOKESTATIC;
-import static org.objectweb.asm.Opcodes.INVOKEVIRTUAL;
-import static org.objectweb.asm.Opcodes.NEW;
-import static org.objectweb.asm.Opcodes.PUTFIELD;
-import static org.objectweb.asm.Opcodes.PUTSTATIC;
-
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.Stack;
 
+import org.evidently.agent.FlowpointCollector.CollectFlowpointDetails;
+import org.evidently.agent.FlowpointCollector.CollectMethodFlowpointDetails;
 import org.evidently.agent.FlowpointCollector.Slot;
+import org.evidently.monitor.SecurityLabelManager;
+import org.evidently.policy.PolicyElementType;
+import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Handle;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.TypePath;
 import org.objectweb.asm.commons.AnalyzerAdapter;
 import org.objectweb.asm.commons.LocalVariablesSorter;
+
+import static org.objectweb.asm.Opcodes.*;
+
 
 public class FlowpointVariableRewriter {
 
@@ -73,8 +77,7 @@ public class FlowpointVariableRewriter {
 
 		cw = new ClassWriter(cr, ClassWriter.COMPUTE_FRAMES);
 		ClassVisitor cv = new FlowpointVariableRewriterClassVisitor(cw, clazz);
-		cr.accept(cv, 0);
-			
+		cr.accept(cv, ClassReader.EXPAND_FRAMES);
 		return cw;
 	}
 

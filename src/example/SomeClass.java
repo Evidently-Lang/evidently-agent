@@ -12,74 +12,107 @@ import edu.columbia.cs.psl.phosphor.runtime.Taint;
 
 public class SomeClass {
 
-	int myField;
-	static int mySField;
-	// public void writeLog(int msg) {
-	// System.out.println("" + msg);
-	// }
-
+	@Sink("DB") @Source("DB") int myField = 2;
+	@Sink("NETWORK") @Source("NETWORK") int myField2 = 2;
+//	static int mySField;
+//	public SomeClass sc = new SomeClass();
+  
 	public void test2() {
 		System.out.println("TESTING");
 
+		 
 		System.out.println("Assignment to a1");
-		int a = MultiTainter.taintedInt(3, "a");
-
+		int a = myField;
+//		
+//		a = SecurityLabelManager.update(a, 
+//				new Label(
+//							new String[] {"DB", "AAAAA"},
+//							new String[] {"DB"}
+//						)
+//				
+//				, null);
+////		
 		System.out.println("Assignment to b1");
-		int b = 3;
+		int b = 100;
+		
+		if(a > 0){
+			b = b * 100;
+		}
 
 		System.out.println("Assignment to a2");
-		// Taint t1 = MultiTainter.getTaint(a);
-		// System.out.println(t1);
+		Taint t1 = MultiTainter.getTaint(b);
+		System.out.println("TAINT BE::::: " + t1);
 		a = b + 100;
 
-		System.out.println("Assignment to a3");
-		// Taint t2 = MultiTainter.getTaint(a);
-		// System.out.println(t2);
+//		System.out.println("Assignment to a3");
+//		// Taint t2 = MultiTainter.getTaint(a);
+//		// System.out.println(t2);
+//
+//		a = b + 100;
 
-		a = b + 100;
+	}
+/*
+	public void test3() {
+		// System.out.println("[BEFORE] MultiTainter.taintedInt()");
+		// myField = MultiTainter.taintedInt(3, "a");
 
+		System.out.println("[BEFORE] Deep assign");
+		sc.sc.myField = myField;
+
+	}
+
+	public void test4() {
+
+		int realNumber = 10;
+
+		SecurityLabelManager.update(sc,
+				new Label(new String[] { "DB" }, // sinks
+						new String[] { "DB" }, // sources
+						PolicyElementType.FLOWPOINT, // the policy element this
+														// matches.
+						"Guess.guess" // the NAME in the policy it matches.
+
+				), null);
 	}
 
 	public int test() {
-		 System.out.println("[BEFORE] MultiTainter.taintedInt()");
-		 myField = MultiTainter.taintedInt(3, "a");
-		 
+		System.out.println("[BEFORE] MultiTainter.taintedInt()");
+		myField = MultiTainter.taintedInt(3, "a");
+
 		System.out.println("[BEFORE] assign b");
-		 int b = 3;
-		
-		 System.out.println("Assignment to b1");
-		 b = myField + 1;
-		
+		int b = 3;
 
-		 System.out.println("Assignment to b2");
-		 b = myField + 1;
+		System.out.println("Assignment to b1");
+		b = myField + 1;
 
-		 System.out.println("Assignment to myField1");
-		 myField = myField*2;
-		
-		 System.out.println("Assignment to mySField1");		 
-		 mySField = myField;
-		 
-		 System.out.println("Assignment to myField2");
-		 myField = 100 + 2;
-		 
-		 System.out.println("Assignment to mySField2");		 
-		 mySField = myField + 1;
-////		 		 
-		 System.out.println("[BEFORE] Assignment to mySField3");		 
-		 mySField = myField + 2;
-		 
-		
+		System.out.println("Assignment to b2");
+		b = myField + 1;
+
+		System.out.println("Assignment to myField1");
+		myField = myField * 2;
+
+		System.out.println("Assignment to mySField1");
+		mySField = myField;
+
+		System.out.println("Assignment to myField2");
+		myField = 100 + 2;
+
+		System.out.println("Assignment to mySField2");
+		mySField = myField + 1;
+		////
+		System.out.println("[BEFORE] Assignment to mySField3");
+		mySField = myField + 2;
+
 		return 3;
 
-	}
+	}*/
 
 	public static void main(String args[]) {
 		System.out.println("[BEFORE] new");
 		SomeClass sc = new SomeClass();
 
-		System.out.println("[BEFORE] callsc");		
-		sc.test();
+		System.out.println("[BEFORE] callsc");
+		sc.test2();
 	}
 
 	// public static void main2(String args[]){
