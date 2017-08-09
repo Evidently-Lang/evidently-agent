@@ -146,6 +146,7 @@ public class EvidentlyClassTransformer implements ClassFileTransformer {
 			}
 
 			// transformation #1, add pre taint checks
+			if(true)
 			{
 				FlowpointCollector c = new FlowpointCollector(className, lastLoad);
 				c.collectFlowpoints();

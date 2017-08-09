@@ -124,9 +124,9 @@ public class FlowpointInstrumenter {
 		@Override
 		public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
 
-			System.out.println(
-					String.format("[Evidently] [TAGGING] Examining body of method for possible flowpoints: %s", name));
+			System.out.println(String.format("[Evidently] [TAGGING] visitMethod access=%d,name=%s,desc=%s,signature=%s" , access, name, desc, signature));
 
+			
 			currentMethod = name;
 			currentMethodDesc = desc;
 			currentMethodSignature = signature;
@@ -529,6 +529,13 @@ public class FlowpointInstrumenter {
 
 		@Override
 		public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
+			
+			if(owner!=null && owner.startsWith("org/aspectj") || (name!=null && (name.startsWith("ajc$") || name.startsWith("aspectOf")))){
+				super.visitMethodInsn(opcode, owner, name, desc, itf);
+				return;
+			}
+		
+
 			System.out.println(String.format(
 					"[Evidently] [TAGGING] Visiting method invocation: opcode=%d,owner=%s,name=%s,desc=%s", opcode,
 					owner, name, desc));
@@ -556,6 +563,14 @@ public class FlowpointInstrumenter {
 
 		@Override
 		public void visitFieldInsn(int opcode, String owner, String name, String desc) {
+			
+			
+			if(desc!=null && desc.startsWith("Lorg/aspectj")){
+				super.visitFieldInsn(opcode, owner, name, desc);	
+				return;
+			}
+			
+			
 			System.out.println(String.format(
 					"[Evidently] [TAGGING] Visiting field instruction: opcode=%d,owner=%s,name=%s,desc=%s", opcode,
 					owner, name, desc));
